@@ -1,3 +1,6 @@
+# API key
+.env
+
 # Custom files
 notes.txt
 
