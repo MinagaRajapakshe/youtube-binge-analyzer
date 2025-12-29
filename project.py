@@ -41,7 +41,7 @@ def main():
                 break
                 
         except Exception as e:
-            print(f"Error: {e}. Please check the URL and your connection.\n")
+            print(f"Error: {e} Please check the URL and your connection.\n")
 
 
 def get_service():
