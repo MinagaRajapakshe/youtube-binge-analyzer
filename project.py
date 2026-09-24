@@ -139,8 +139,23 @@ def get_playlist_duration(youtube, playlist_id):
             total_seconds += duration_td.total_seconds()
 
     # 3. Calculate and Print
+    print_time_stats(total_seconds)
+    
 
+def print_time_stats(total_seconds):
+    """Helper to print duration at different speeds."""
+    
+    speeds = [1.0, 1.25, 1.5, 2.0]
+    
+    print("-" * 40)
+    print(f"{'Speed':<10} | {'Time (HH:MM:SS)'}")
+    print("-" * 40)
 
+    for speed in speeds:
+        adjusted_seconds = total_seconds / speed
+        time_str = str(timedelta(seconds=int(adjusted_seconds)))
+        print(f"{speed:<10} | {time_str}")
+    print("-" * 40)
 
 if __name__ == "__main__":
     main()
