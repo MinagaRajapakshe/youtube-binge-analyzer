@@ -2,28 +2,26 @@ import os
 import sys
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-import requests
 import re
-
-load_dotenv()
+import isodate
+from datetime import timedelta
 
 def main():
     # Get API service
     try:
         youtube = get_service()
-        print("API Connection Successful")
+        # print("API Connection Successful") 
     except ValueError as e:
         sys.exit(f"API Connection Failed: {e}")
 
-    while True:
-        playlist_confirmed = False
+    playlist_id = None
+    title = None
 
+    while True:
         url = input("Enter YouTube Playlist URL (or 'q' to quit): ").strip()
         
         if url.lower() in ['q', 'quit']:
-            print("Exiting...")
-            break
+            sys.exit("Exiting...")
         
         try:
             playlist_id = extract_playlist_id(url)
@@ -36,37 +34,32 @@ def main():
             title = get_playlist_title(youtube, playlist_id) 
         except Exception as e:
             print(f"\nError: {e} Please check the URL and your connection\n")
-        else:
-            print(f"\nTarget Playlist: {title}\n")
+            continue
+        
+        print(f"\nTarget Playlist: {title}\n")
 
-            confirm = input("Is this the correct playlist? (y/n): ").lower().strip()
-            while True:
-                if confirm == 'y':
-                    playlist_confirmed = True
-                    break
-                elif confirm == 'n':
-                    playlist_confirmed = False
-                    break
-                else:
-                    continue
-
-        if playlist_confirmed:
+        confirm = input("Is this the correct playlist? (y/n): ").lower().strip()
+        if confirm == 'y':
             break
+        else:
+            print("Please try again.")
+            continue
 
-        # Proceed to calculation logic
+    # Proceed to calculation logic
+    if playlist_id:
+        print(f"\nCalculating duration for: {title}...")
+        get_playlist_duration(youtube, playlist_id)
 
 
 def get_service():
     """
     Initializes the YouTube API discovery service.
-
-    :return: The YouTube API service object.
-    :raises ValueError: If the 'YOUTUBE_API_KEY' environment variable is missing.
     """
-    api_key = os.getenv("YT_API_KEY")
+    load_dotenv()
+    api_key = os.environ.get("YT_API_KEY")
 
     if not api_key:
-        raise ValueError("YT_API_KEY not found in .env file.")
+        raise ValueError("YT_API_KEY environment variable not set.")
     
     return build("youtube", "v3", developerKey=api_key)
 
@@ -74,10 +67,6 @@ def get_service():
 def get_playlist_title(youtube, playlist_id):
     """
     Retrieves the title of a YouTube playlist given its ID.
-
-    :param youtube: The initialized YouTube API service object.
-    :param playlist_id: The ID of the YouTube playlist.
-    :return: The title of the playlist, or None if not found.
     """
     request = youtube.playlists().list(
         part="snippet",
@@ -94,13 +83,9 @@ def get_playlist_title(youtube, playlist_id):
 def extract_playlist_id(url):
     """
     Extracts the YouTube playlist ID from a provided URL.
-
-    :param url: The full YouTube playlist URL.
-    :return: The extracted playlist ID string.
-    :raises ValueError: If the URL format is invalid or no ID is found.
     """
-    
-    pattern = r"(?:list=)([a-zA-Z0-9_-]{18,42})"
+    # Regex to handle various URL formats, including those with other query params
+    pattern = r"(?:list=)([a-zA-Z0-9_-]+)"
     
     match = re.search(pattern, url)
     if match:
@@ -108,6 +93,54 @@ def extract_playlist_id(url):
         return playlist_id
     else:
         raise ValueError("Invalid URL format.")
+
+
+def get_playlist_duration(youtube, playlist_id):
+    """
+    Calculates and prints the total duration of the playlist at different speeds.
+    """
+    video_ids = []
+    next_page_token = None
+
+    # 1. Fetch all video IDs from the playlist
+    while True:
+        request = youtube.playlistItems().list(
+            part="contentDetails",
+            playlistId=playlist_id,
+            maxResults=50,
+            pageToken=next_page_token
+        )
+        response = request.execute()
+
+        for item in response['items']:
+            video_ids.append(item['contentDetails']['videoId'])
+
+        next_page_token = response.get('nextPageToken')
+        if not next_page_token:
+            break
+
+    print(f"Found {len(video_ids)} videos. Fetching details...")
+
+    # 2. Fetch video details (duration) in batches of 50
+    total_seconds = 0
+    
+    for i in range(0, len(video_ids), 50):
+        batch_ids = video_ids[i:i+50]
+        request = youtube.videos().list(
+            part="contentDetails",
+            id=','.join(batch_ids)
+        )
+        response = request.execute()
+
+        for item in response['items']:
+            duration_iso = item['contentDetails']['duration']
+            # isodate.parse_duration returns a datetime.timedelta object
+            duration_td = isodate.parse_duration(duration_iso)
+            total_seconds += duration_td.total_seconds()
+
+    # 3. Calculate and Print
+
+
 
 if __name__ == "__main__":
     main()
