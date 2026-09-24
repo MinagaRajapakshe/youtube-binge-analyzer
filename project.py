@@ -45,10 +45,12 @@ def main():
             print("Please try again.")
             continue
 
-    # Proceed to calculation logic
+    # Proceed to calculation logic and display stats
     if playlist_id:
         print(f"\nCalculating duration for: {title}...")
-        get_playlist_duration(youtube, playlist_id)
+        
+        playlist_duration = get_playlist_duration(youtube, playlist_id)
+        print_time_stats(playlist_duration)
 
 
 def get_service():
@@ -102,7 +104,7 @@ def get_playlist_duration(youtube, playlist_id):
     video_ids = []
     next_page_token = None
 
-    # 1. Fetch all video IDs from the playlist
+    # Fetch all video IDs from the playlist
     while True:
         request = youtube.playlistItems().list(
             part="contentDetails",
@@ -121,7 +123,7 @@ def get_playlist_duration(youtube, playlist_id):
 
     print(f"Found {len(video_ids)} videos. Fetching details...")
 
-    # 2. Fetch video details (duration) in batches of 50
+    # Fetch video details (duration) in batches of 50
     total_seconds = 0
     
     for i in range(0, len(video_ids), 50):
@@ -138,8 +140,7 @@ def get_playlist_duration(youtube, playlist_id):
             duration_td = isodate.parse_duration(duration_iso)
             total_seconds += duration_td.total_seconds()
 
-    # 3. Calculate and Print
-    print_time_stats(total_seconds)
+    return total_seconds
     
 
 def print_time_stats(total_seconds):
